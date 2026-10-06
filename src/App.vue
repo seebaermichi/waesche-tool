@@ -27,6 +27,9 @@ import {
   saveTimer,
 } from './composables/useStorage.js'
 
+/** Aus package.json, beim Build eingesetzt (vite.config.js) */
+const appVersion = __APP_VERSION__
+
 const alarm = useAlarm()
 const wakeLock = useWakeLock()
 const push = usePush()
@@ -707,16 +710,19 @@ const pushHint = computed(() => {
         </button>
       </div>
 
-      <p
-        class="text-xs leading-relaxed"
-        :class="{
-          'text-emerald-600': pushHint.tone === 'ok',
-          'text-slate-400': pushHint.tone === 'info',
-          'text-amber-600': pushHint.tone === 'warn',
-        }"
-      >
-        {{ pushHint.text }}
-      </p>
+      <div class="flex items-end justify-between gap-3">
+        <p
+          class="text-xs leading-relaxed"
+          :class="{
+            'text-emerald-600': pushHint.tone === 'ok',
+            'text-slate-400': pushHint.tone === 'info',
+            'text-amber-600': pushHint.tone === 'warn',
+          }"
+        >
+          {{ pushHint.text }}
+        </p>
+        <span class="tnum shrink-0 text-xs text-slate-300">v{{ appVersion }}</span>
+      </div>
     </div>
   </div>
 </template>

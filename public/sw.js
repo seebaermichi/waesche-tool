@@ -1,7 +1,10 @@
 // Service Worker: zeigt die Push-Benachrichtigung an und hält die App offline lauffähig.
 // Bewusst plain JS – die Datei wird von Vite nicht gebündelt, sondern 1:1 kopiert.
 
-const CACHE = 'waesche-v2'
+// Der Build setzt hier die Versionsnummer aus package.json ein. Dadurch ändert sich sw.js mit
+// jedem Release, der Browser installiert den neuen Service Worker und lädt die App neu.
+const VERSION = '__APP_VERSION__'
+const CACHE = `waesche-${VERSION}`
 const SHELL = ['/', '/index.html', '/icon-192.png', '/manifest.webmanifest']
 
 self.addEventListener('install', (event) => {
@@ -16,15 +19,26 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
-      .then(() => self.clients.claim()),
+    (async () => {
+      const outdated = (await caches.keys()).filter((key) => key !== CACHE)
+      await Promise.all(outdated.map((key) => caches.delete(key)))
+      await self.clients.claim()
+
+      // Update statt Erstinstallation: offene Fenster zeigen noch die alte Version – einmal
+      // neu laden. Der Timer überlebt das, er steht in localStorage.
+      if (outdated.length === 0) return
+      const windows = await self.clients.matchAll({ type: 'window' })
+      await Promise.all(windows.map((client) => client.navigate?.(client.url).catch(() => {})))
+    })(),
   )
 })
 
 // Network-first für die Seite selbst, damit Updates sofort ankommen; der Cache ist nur das
 // Netz-weg-Fallback. API-Aufrufe werden nie gecacht.
+//
+// `cache: 'no-cache'` zwingt den Browser, beim Server nachzufragen (dank ETag meist nur ein
+// kurzes 304). Ohne das liefert Safari eine Seite ohne Cache-Control-Header tagelang aus dem
+// HTTP-Cache – so blieb nach einem Upload die alte Version stehen.
 self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return
@@ -33,7 +47,7 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return
 
   event.respondWith(
-    fetch(request)
+    fetch(request, { cache: 'no-cache' })
       .then((response) => {
         if (response.ok) {
           const copy = response.clone()

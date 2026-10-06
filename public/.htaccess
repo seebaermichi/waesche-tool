@@ -1,0 +1,8 @@
+# Seite, Service Worker und Manifest nie ungeprüft aus dem Browser-Cache nehmen – sonst zeigt
+# Safari nach einem Upload tagelang die alte Version. Dank ETag kostet die Nachfrage beim
+# Server meist nur ein kurzes "304 Not Modified". Icons dürfen normal gecacht werden.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|js|webmanifest)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

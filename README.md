@@ -98,6 +98,7 @@ sw.js                   Service Worker (Benachrichtigung + Offline)
 manifest.webmanifest
 icon-180.png  icon-192.png  icon-512.png
 api/config.php  api/push.php  api/store.php  api/timer.php  api/cron.php
+.htaccess               Seite und Service Worker nicht ungeprüft cachen
 api/data/.htaccess      sperrt die gespeicherten Timer für Fremdzugriffe
 ```
 
@@ -106,9 +107,9 @@ Dateinamen sind fest, ein Update ist also einfaches Drüberkopieren.
 
 Zwei Fallstricke beim Hochladen:
 
-- **`api/data/.htaccess` nicht vergessen** – viele FTP-Programme blenden Dateien aus, deren
-  Name mit einem Punkt beginnt. (Auf nginx greift `.htaccess` nicht; dort `api/data/` per
-  Server-Konfiguration sperren.)
+- **Die beiden `.htaccess`-Dateien nicht vergessen** – viele FTP-Programme blenden Dateien
+  aus, deren Name mit einem Punkt beginnt. (Auf nginx greift `.htaccess` nicht; dort
+  `api/data/` per Server-Konfiguration sperren und den Cache-Header selbst setzen.)
 - **`api/data/` muss für PHP beschreibbar sein.** Meldet `/api/timer.php` einen Fehler,
   hilft `chmod 777` auf dieses Verzeichnis.
 
@@ -153,7 +154,19 @@ php public/api/cron.php --debug    # registrierte Geräte anzeigen, nichts versc
 
 Beides geht auch über die URL: `…/api/cron.php?key=SECRET&test=1` bzw. `&debug=1`.
 
-### Zwei Fallstricke, die uns Zeit gekostet haben
+### Neue Version veröffentlichen
+
+```bash
+npm version minor        # bzw. patch / major – erhöht die Nummer, committet und taggt
+git push --follow-tags
+npm run build            # dann dist/ hochladen
+```
+
+Die Nummer aus `package.json` erscheint unten rechts in der App und landet beim Build auch in
+`sw.js`. Dadurch erkennt der Browser jede neue Version, installiert den neuen Service Worker
+und lädt die App einmal neu. Änderungen bitte in `CHANGELOG.md` festhalten.
+
+### Drei Fallstricke, die uns Zeit gekostet haben
 
 - **`renotify` in `showNotification`** lässt WebKit den Aufruf abbrechen – die Benachrichtigung
   erscheint dann gar nicht, obwohl der Push sauber zugestellt wurde. Die Option ist auf iOS
@@ -161,6 +174,10 @@ Beides geht auch über die URL: `…/api/cron.php?key=SECRET&test=1` bzw. `&debu
 - **`AudioContext.resume()` ist asynchron.** Wer direkt danach Töne einplant, plant sie in die
   Vergangenheit der noch stehenden Audio-Uhr, und sie werden verschluckt. Deshalb wartet
   `useAlarm` das Aufwachen ab und gibt den Tönen einen kleinen Vorlauf.
+- **Ohne `Cache-Control` cacht Safari die Seite tagelang** (Faustregel: 10 % der Zeit seit der
+  letzten Änderung) und fragt den Server gar nicht erst. Nach einem Upload blieb so die alte
+  Version stehen. Deshalb holt `sw.js` die Seite mit `cache: 'no-cache'`, und die
+  `.htaccess` im Doc-Root setzt den Header zusätzlich.
 
 ## Sicherheit
 
