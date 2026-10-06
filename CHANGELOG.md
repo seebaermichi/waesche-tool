@@ -3,6 +3,10 @@
 Versionsnummern nach [Semantic Versioning](https://semver.org/lang/de/). Die laufende Version
 steht in der App unten rechts.
 
+## 1.2.1 – 2026-10-06
+
+- Schöneres Zahnrad-Icon für die Einstellungen (Font Awesome Free, CC BY 4.0).
+
 ## 1.2.0 – 2026-10-06
 
 - **Einstellungen** hinter dem Zahnrad oben rechts: Waschmaschinen, Entkalken, Display

@@ -96,3 +96,5 @@ New machine profiles, fixes and translations are welcome, see [CONTRIBUTING.md](
 
 [MIT](LICENSE). Brand and model names belong to their respective owners; this project is not
 affiliated with any manufacturer.
+
+The gear icon is from [Font Awesome Free](https://fontawesome.com) (CC BY 4.0).

@@ -1,6 +1,6 @@
 {
   "name": "waesche-tool",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "type": "module",
   "description": "Timer-PWA für Waschmaschinen ohne Restzeitanzeige – mit Push-Benachrichtigung und Entkalkungs-Erinnerung",

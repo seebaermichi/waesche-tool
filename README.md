@@ -213,3 +213,5 @@ automatisch eingesammelt.
 
 [MIT](LICENSE). Marken- und Modellnamen gehören ihren jeweiligen Inhabern; das Projekt steht
 in keiner Verbindung zu den Herstellern.
+
+Das Zahnrad-Icon stammt aus [Font Awesome Free](https://fontawesome.com) (CC BY 4.0).
