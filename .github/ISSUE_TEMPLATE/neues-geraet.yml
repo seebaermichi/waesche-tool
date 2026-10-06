@@ -1,0 +1,56 @@
+name: Neues Gerät / New machine
+description: Programme und Laufzeiten einer weiteren Waschmaschine vorschlagen
+title: "Neues Gerät: "
+labels: ["neues-geraet"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke! Bitte die Programmtabelle aus dem Handbuch abtippen. **Keine PDFs oder Scans
+        hochladen** – Handbücher sind urheberrechtlich geschützt.
+        *Thanks! Please type out the program table. Don't upload manual PDFs or scans.*
+  - type: input
+    id: model
+    attributes:
+      label: Hersteller und Modell / Brand and model
+      placeholder: "Bosch WAN28K40"
+    validations:
+      required: true
+  - type: input
+    id: description
+    attributes:
+      label: Bauart und Fassungsvermögen / Type and capacity
+      placeholder: "Frontlader, 8 kg"
+    validations:
+      required: true
+  - type: textarea
+    id: programs
+    attributes:
+      label: Programme und Laufzeiten / Programs and durations
+      description: Eine Zeile pro Programm, in der Reihenfolge des Programmwählers.
+      placeholder: |
+        Baumwolle 40 °C – 2:35 h
+        Pflegeleicht – 1:50 h
+        Schleudern – 0:15 h
+    validations:
+      required: true
+  - type: textarea
+    id: delay
+    attributes:
+      label: Zeitvorwahl / Delay
+      description: Welche Stufen? Wird der Start verschoben oder die Endzeit eingestellt („fertig in …“)?
+      placeholder: "Endzeitvorwahl 1–24 h in 1-h-Schritten"
+    validations:
+      required: true
+  - type: input
+    id: descale
+    attributes:
+      label: Reinigungs-/Entkalkungsprogramm (optional) / Cleaning program
+      placeholder: "Trommelreinigung 90 °C"
+  - type: input
+    id: source
+    attributes:
+      label: Quelle / Source
+      placeholder: "Bedienungsanleitung S. 22 / eigene Messung"
+    validations:
+      required: true

@@ -1,0 +1,31 @@
+{
+  "name": "waesche-tool",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Timer-PWA für Waschmaschinen ohne Restzeitanzeige – mit Push-Benachrichtigung und Entkalkungs-Erinnerung",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seebaermichi/waesche-tool.git"
+  },
+  "scripts": {
+    "dev": "vite",
+    "dev:api": "php -S 127.0.0.1:8787 -t public",
+    "build": "node scripts/check-machines.mjs && node scripts/make-icon.mjs && vite build && rm -f dist/api/data/timers.json dist/api/config.example.php",
+    "preview": "vite preview",
+    "icons": "node scripts/make-icon.mjs",
+    "vapid": "php scripts/gen-vapid.php",
+    "check": "node scripts/check-machines.mjs"
+  },
+  "dependencies": {
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "tailwindcss": "^4.0.0",
+    "vite": "^6.0.7",
+    "vite-plugin-singlefile": "^2.1.0"
+  }
+}

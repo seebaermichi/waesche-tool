@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+.DS_Store
+
+# Geheimnisse und Laufzeitdaten des Push-Backends
+public/api/config.php
+public/api/data/timers.json
+
+# Lokale Notizen und Fotos, Handbuch-PDFs (urheberrechtlich geschützt)
+*.HEIC
+*.heic
+*.pdf
+
+# Lokale Claude-Code-Einstellungen
+.claude/settings.local.json
