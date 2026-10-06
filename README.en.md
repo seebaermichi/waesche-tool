@@ -23,7 +23,7 @@ manual, see [CONTRIBUTING.md](CONTRIBUTING.md). If you don't code, just send the
 
 ## How to use
 
-1. Pick your model under **Waschmaschine** at the bottom (once).
+1. Once: tap the **gear** at the top right and pick your model under "Meine Waschmaschinen".
 2. Choose the program (same order as on the dial).
 3. Choose the delay: the app offers exactly the steps your machine supports.
 4. Press **Start**. The app shows the finish time and counts down.
@@ -31,6 +31,10 @@ manual, see [CONTRIBUTING.md](CONTRIBUTING.md). If you don't code, just send the
 
 Durations come from the manuals and are usually estimates. If your machine takes longer or
 shorter, adjust a program permanently via **anpassen** or on the "done" screen.
+
+Several machines (home and holiday home, old and new) can be added and named in the settings.
+Each keeps its own wash counter, descaling date and duration adjustments. With more than one, a
+quick switch appears at the top of the main screen.
 
 ## Descaling
 

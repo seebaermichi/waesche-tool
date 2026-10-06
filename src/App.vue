@@ -4,28 +4,23 @@ import ProgramSelect from './components/ProgramSelect.vue'
 import DelayRadios from './components/DelayRadios.vue'
 import DurationAdjust from './components/DurationAdjust.vue'
 import DescaleGuide from './components/DescaleGuide.vue'
+import SettingsPage from './components/SettingsPage.vue'
 import { formatDuration, programLabel } from './programs.js'
-import {
-  countsAsWash,
-  findMachine,
-  findProgram,
-  machineLabel,
-  machines,
-  schedule,
-} from './machines/index.js'
+import { countsAsWash, findMachine, findProgram, schedule } from './machines/index.js'
 import { useAlarm } from './composables/useAlarm.js'
 import { useWakeLock } from './composables/useWakeLock.js'
 import { usePush } from './composables/usePush.js'
-import { useDescaling } from './composables/useDescaling.js'
+import { useAppliances } from './composables/useAppliances.js'
 import {
-  clearTimer,
-  loadAdjustments,
-  loadSettings,
-  loadTimer,
-  saveAdjustments,
-  saveSettings,
-  saveTimer,
-} from './composables/useStorage.js'
+  countWash,
+  markDescaled,
+  setLastDescaledAt,
+  setThreshold,
+  setWashes,
+  snooze,
+  useDescaling,
+} from './composables/useDescaling.js'
+import { clearTimer, loadSettings, loadTimer, saveSettings, saveTimer } from './composables/useStorage.js'
 
 /** Aus package.json, beim Build eingesetzt (vite.config.js) */
 const appVersion = __APP_VERSION__
@@ -35,38 +30,45 @@ const wakeLock = useWakeLock()
 const push = usePush()
 
 const settings = ref(loadSettings())
-const adjustments = ref(loadAdjustments())
+const showSettings = ref(false)
 
-const machineId = ref(findMachine(settings.value.machineId)?.id ?? machines[0].id)
-const machine = computed(() => findMachine(machineId.value) ?? machines[0])
+// --- Gewählte Maschine ------------------------------------------------------
+
+const appliances = useAppliances()
+const appliance = computed(() => appliances.active.value)
+const machine = computed(() => appliances.modelOf(appliance.value))
 const programs = computed(() => machine.value.programs)
 
-const programId = ref(
-  findProgram(machine.value, settings.value.lastProgramId)?.id ?? programs.value[0].id,
-)
+function initialProgramId() {
+  return findProgram(machine.value, appliance.value.lastProgramId)?.id ?? programs.value[0].id
+}
+
+const programId = ref(initialProgramId())
 const delayHours = ref(0)
 const showAdjust = ref(false)
 
 /**
  * Laufender Timer:
- * { machineId, programId, delayHours, minutes, startedAt, startsAt, endsAt, descale, counted }
+ * { applianceId, machineId, programId, delayHours, minutes, startedAt, startsAt, endsAt,
+ *   descale, counted }
  */
 const timer = ref(null)
 const done = ref(false)
 const now = ref(Date.now())
 
-const descaling = useDescaling(now)
-const care = descaling.care
-const descaleReminder = descaling.remind
-const descaleDueAt = descaling.dueAt
+const descaling = useDescaling(
+  now,
+  computed(() => appliance.value.care),
+)
+const care = computed(() => appliance.value.care)
 const showGuide = ref(false)
 /** Läuft das Entkalkungsprogramm mit Entkalker? Dann setzt es am Ende den Wäschezähler zurück. */
 const descaleRun = ref(true)
 
 let tickId = null
 
-/** Feintuning des gewählten Geräts: { [programId]: minutenDelta } */
-const machineAdjustments = computed(() => adjustments.value[machine.value.id] ?? {})
+/** Feintuning der gewählten Maschine: { [programId]: minutenDelta } */
+const machineAdjustments = computed(() => appliance.value.adjustments)
 
 const selectedProgram = computed(
   () => findProgram(machine.value, programId.value) ?? programs.value[0],
@@ -79,19 +81,41 @@ const descaleProgram = computed(() =>
   machine.value.descale ? findProgram(machine.value, machine.value.descale.programId) : null,
 )
 const descaleMinutes = computed(() =>
-  descaleProgram.value
-    ? descaleProgram.value.minutes + (machineAdjustments.value[descaleProgram.value.id] ?? 0)
-    : 0,
+  descaleProgram.value ? appliances.minutesOf(appliance.value, descaleProgram.value.id) : 0,
 )
 const isDescaleProgram = computed(() => selectedProgram.value.id === descaleProgram.value?.id)
 
-/** Gerät und Programm des laufenden Timers – Timer aus v1 kennen kein Gerät. */
+/** Für die Einstellungsseite: Entkalken der gewählten Maschine oder null. */
+const descaleInfo = computed(() =>
+  descaleProgram.value
+    ? {
+        program: descaleProgram.value,
+        profile: machine.value.descale,
+        minutes: descaleMinutes.value,
+        dueAt: descaling.dueAt.value,
+      }
+    : null,
+)
+
+// --- Maschine des laufenden Timers ------------------------------------------
+// Sie kann eine andere sein als die gewählte. Timer aus 1.0/1.1 kennen noch keine Maschine.
+
+const timerAppliance = computed(
+  () => (timer.value && appliances.byId(timer.value.applianceId)) || appliance.value,
+)
 const timerMachine = computed(
-  () => (timer.value && findMachine(timer.value.machineId)) || machine.value,
+  () =>
+    (timer.value && findMachine(timer.value.machineId)) || appliances.modelOf(timerAppliance.value),
 )
 const timerProgram = computed(() =>
   timer.value ? findProgram(timerMachine.value, timer.value.programId) : null,
 )
+const timerDescaling = useDescaling(
+  now,
+  computed(() => timerAppliance.value.care),
+)
+
+const hasSeveral = computed(() => appliances.list.value.length > 1)
 
 const running = computed(() => timer.value !== null && !done.value)
 
@@ -141,21 +165,15 @@ function dayPrefix(ts) {
   return weekdayFormat.format(target)
 }
 
-const dateFormat = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long' })
-
-function formatDate(ts) {
-  return dateFormat.format(new Date(ts))
-}
-
-const descaleReason = computed(() => {
-  const { washes, lastDescaledAt } = care.value
-  if (descaling.dueByCount.value) {
+function descaleReason(careState, status) {
+  const { washes, lastDescaledAt } = careState
+  if (status.dueByCount.value) {
     return `${washes} Wäschen seit ${lastDescaledAt ? 'der letzten Entkalkung' : 'Beginn der Zählung'}.`
   }
   return lastDescaledAt
     ? 'Die letzte Entkalkung ist über 3 Monate her.'
     : 'Seit 3 Monaten keine Entkalkung vermerkt.'
-})
+}
 
 function formatRemaining(ms) {
   const totalMinutes = Math.ceil(ms / 60_000)
@@ -176,6 +194,7 @@ async function start() {
   const minutes = selectedMinutes.value
   const startedAt = Date.now()
   const record = {
+    applianceId: appliance.value.id,
     machineId: machine.value.id,
     programId: selectedProgram.value.id,
     delayHours: delayHours.value,
@@ -201,9 +220,7 @@ async function start() {
   showGuide.value = false
   saveTimer(record)
 
-  settings.value.machineId = record.machineId
-  settings.value.lastProgramId = record.programId
-  saveSettings(settings.value)
+  appliances.rememberProgram(record.applianceId, record.programId)
 
   if (settings.value.keepAwake) wakeLock.request()
 
@@ -219,12 +236,13 @@ async function start() {
 function bookTimer(complete) {
   const t = timer.value
   if (!t || t.counted) return
+  const id = timerAppliance.value.id
   if (t.descale) {
     // Eine abgebrochene Entkalkung zählt nicht als erledigt.
     if (!complete) return
-    descaling.markDescaled()
+    appliances.update(id, (a) => markDescaled(a.care))
   } else if (countsAsWash(timerMachine.value, t.programId)) {
-    descaling.countWash()
+    appliances.update(id, (a) => countWash(a.care))
   }
   timer.value = { ...t, counted: true }
   saveTimer(timer.value)
@@ -263,11 +281,33 @@ function chooseDescaleProgram() {
   delayHours.value = 0
   descaleRun.value = true
   showGuide.value = false
+  showSettings.value = false
 }
 
 function confirmDescaled() {
-  descaling.markDescaled()
+  appliances.update(appliance.value.id, (a) => markDescaled(a.care))
   showGuide.value = false
+}
+
+const careSetters = { washes: setWashes, lastDescaledAt: setLastDescaledAt, threshold: setThreshold }
+
+function updateCare(field, value) {
+  appliances.update(appliance.value.id, (a) => careSetters[field](a.care, value))
+}
+
+function snoozeReminder() {
+  appliances.update(appliance.value.id, (a) => snooze(a.care))
+}
+
+function openSettings() {
+  showSettings.value = true
+  window.scrollTo({ top: 0 })
+}
+
+function closeSettings() {
+  showSettings.value = false
+  showGuide.value = false
+  window.scrollTo({ top: 0 })
 }
 
 function openGuide() {
@@ -280,25 +320,15 @@ async function openGuideFromDone() {
   openGuide()
 }
 
-function setDelta(machineKey, programKey, delta) {
-  const forMachine = { ...adjustments.value[machineKey] }
-  if (delta === 0) delete forMachine[programKey]
-  else forMachine[programKey] = delta
-  const next = { ...adjustments.value, [machineKey]: forMachine }
-  if (Object.keys(forMachine).length === 0) delete next[machineKey]
-  adjustments.value = next
-  saveAdjustments(next)
-}
-
-function chooseMachine(id) {
-  machineId.value = id
-  programId.value = programs.value[0].id
-  delayHours.value = 0
-  showGuide.value = false
-  settings.value.machineId = id
-  settings.value.lastProgramId = null
-  saveSettings(settings.value)
-}
+// Andere Maschine gewählt oder ihr Modell geändert: Programm und Zeitvorwahl passen nicht mehr.
+watch(
+  () => [appliance.value.id, appliance.value.modelId],
+  () => {
+    programId.value = initialProgramId()
+    delayHours.value = 0
+    showAdjust.value = false
+  },
+)
 
 // Nach einem Neuladen ist der Audio-Context nicht mehr freigeschaltet – dann bliebe der
 // Signalton stumm. Die nächstbeste Nutzergeste nachträglich dafür nutzen.
@@ -345,6 +375,9 @@ watch(programId, (id) => {
 
 // --- Hinweistext zur Benachrichtigung ---------------------------------------
 
+/** Auf dem Startbildschirm nur, wenn etwas zu tun ist – "aktiv" steht in den Einstellungen. */
+const pushNeedsAttention = computed(() => push.state.value !== 'granted')
+
 const pushHint = computed(() => {
   switch (push.state.value) {
     case 'granted':
@@ -370,11 +403,67 @@ const pushHint = computed(() => {
 </script>
 
 <template>
-  <div class="mx-auto flex min-h-dvh w-full max-w-md flex-col px-5 pb-8 pt-6">
-    <h1 class="flex items-baseline justify-between gap-3">
-      <span class="text-sm font-semibold uppercase tracking-widest text-slate-400">Wäsche</span>
-      <span class="truncate text-xs text-slate-400">{{ machineLabel(timer ? timerMachine : machine) }}</span>
-    </h1>
+  <SettingsPage
+    v-if="showSettings"
+    v-model:open-guide="showGuide"
+    :appliances="appliances"
+    :busy-id="timer ? timerAppliance.id : null"
+    :keep-awake="settings.keepAwake"
+    :wake-lock-supported="wakeLock.supported"
+    :push-hint="pushHint"
+    :version="appVersion"
+    :descale="descaleInfo"
+    @close="closeSettings"
+    @toggle-keep-awake="toggleKeepAwake"
+    @test-alarm="alarm.test()"
+    @choose-descale="chooseDescaleProgram"
+    @descaled="confirmDescaled"
+    @update:care="updateCare"
+  />
+
+  <div v-else class="mx-auto flex min-h-dvh w-full max-w-md flex-col px-5 pb-8 pt-6">
+    <header class="flex min-h-9 items-center justify-between gap-3">
+      <h1 class="text-sm font-semibold uppercase tracking-widest text-slate-400">Wäsche</h1>
+      <div class="flex min-w-0 items-center gap-1">
+        <!-- Schnellwechsel, sobald es mehr als eine eigene Maschine gibt -->
+        <template v-if="hasSeveral">
+          <span v-if="timer" class="truncate text-sm font-medium text-slate-500">
+            {{ appliances.displayName(timerAppliance) }}
+          </span>
+          <label v-else class="relative min-w-0">
+            <span class="sr-only">Waschmaschine</span>
+            <select
+              class="max-w-48 appearance-none truncate rounded-full border border-slate-300 bg-white py-1.5 pl-3 pr-7 text-sm font-medium text-slate-700"
+              :value="appliance.id"
+              @change="appliances.select($event.target.value)"
+            >
+              <option v-for="a in appliances.list.value" :key="a.id" :value="a.id">
+                {{ appliances.displayName(a) }}
+              </option>
+            </select>
+            <svg
+              class="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path d="M5.5 7.5 10 12l4.5-4.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </label>
+        </template>
+        <button
+          type="button"
+          class="-mr-2 flex size-9 shrink-0 items-center justify-center rounded-full text-slate-500 active:bg-slate-200"
+          aria-label="Einstellungen"
+          @click="openSettings"
+        >
+          <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.3 3.3a1.7 1.7 0 0 1 3.4 0 1.7 1.7 0 0 0 2.6 1.1 1.7 1.7 0 0 1 2.4 2.4 1.7 1.7 0 0 0 1.1 2.6 1.7 1.7 0 0 1 0 3.4 1.7 1.7 0 0 0-1.1 2.6 1.7 1.7 0 0 1-2.4 2.4 1.7 1.7 0 0 0-2.6 1.1 1.7 1.7 0 0 1-3.4 0 1.7 1.7 0 0 0-2.6-1.1 1.7 1.7 0 0 1-2.4-2.4 1.7 1.7 0 0 0-1.1-2.6 1.7 1.7 0 0 1 0-3.4 1.7 1.7 0 0 0 1.1-2.6 1.7 1.7 0 0 1 2.4-2.4 1.7 1.7 0 0 0 2.6-1.1Z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
+      </div>
+    </header>
 
     <!-- ---------------------------------------------------------------- Ruhe -->
     <template v-if="!timer">
@@ -387,21 +476,21 @@ const pushHint = computed(() => {
           :washes="care.washes"
           :threshold="care.threshold"
           :last-descaled-at="care.lastDescaledAt"
-          :due-at="descaleDueAt"
+          :due-at="descaling.dueAt.value"
           @choose="chooseDescaleProgram"
           @done="confirmDescaled"
           @close="showGuide = false"
-          @update:threshold="descaling.setThreshold($event)"
-          @update:washes="descaling.setWashes($event)"
-          @update:last-descaled-at="descaling.setLastDescaledAt($event)"
+          @update:threshold="updateCare('threshold', $event)"
+          @update:washes="updateCare('washes', $event)"
+          @update:last-descaled-at="updateCare('lastDescaledAt', $event)"
         />
 
         <section
-          v-else-if="descaleProgram && descaleReminder && !(isDescaleProgram && descaleRun)"
+          v-else-if="descaleProgram && descaling.remind.value && !(isDescaleProgram && descaleRun)"
           class="rounded-2xl border border-amber-200 bg-amber-50 p-4"
         >
           <p class="font-semibold text-amber-900">Zeit zum Entkalken</p>
-          <p class="mt-1 text-sm text-amber-800">{{ descaleReason }}</p>
+          <p class="mt-1 text-sm text-amber-800">{{ descaleReason(care, descaling) }}</p>
           <div class="mt-3 flex gap-2">
             <button
               type="button"
@@ -413,7 +502,7 @@ const pushHint = computed(() => {
             <button
               type="button"
               class="rounded-xl px-4 py-2.5 text-sm font-medium text-amber-800 active:bg-amber-100"
-              @click="descaling.snooze()"
+              @click="snoozeReminder"
             >
               später
             </button>
@@ -441,7 +530,7 @@ const pushHint = computed(() => {
             class="mt-3"
             :program="selectedProgram"
             :delta="selectedDelta"
-            @update:delta="setDelta(machine.id, selectedProgram.id, $event)"
+            @update:delta="appliances.setDelta(appliance.id, selectedProgram.id, $event)"
           />
 
           <div
@@ -601,11 +690,13 @@ const pushHint = computed(() => {
       </section>
 
       <section
-        v-else-if="timerMachine.descale && descaleReminder"
+        v-else-if="timerMachine.descale && timerDescaling.remind.value"
         class="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-4"
       >
         <p class="font-semibold text-amber-900">Zeit zum Entkalken</p>
-        <p class="mt-1 text-sm text-amber-800">{{ descaleReason }}</p>
+        <p class="mt-1 text-sm text-amber-800">
+          {{ descaleReason(timerAppliance.care, timerDescaling) }}
+        </p>
         <button
           type="button"
           class="mt-3 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white active:bg-amber-700"
@@ -620,8 +711,8 @@ const pushHint = computed(() => {
         <DurationAdjust
           v-if="timerProgram"
           :program="timerProgram"
-          :delta="adjustments[timerMachine.id]?.[timerProgram.id] ?? 0"
-          @update:delta="setDelta(timerMachine.id, timerProgram.id, $event)"
+          :delta="timerAppliance.adjustments[timerProgram.id] ?? 0"
+          @update:delta="appliances.setDelta(timerAppliance.id, timerProgram.id, $event)"
         />
         <p class="mt-2 text-xs leading-relaxed text-slate-400">
           Die Korrektur wird gespeichert und beim nächsten Mal mitgerechnet.
@@ -640,89 +731,15 @@ const pushHint = computed(() => {
     </template>
 
     <!-- ------------------------------------------------------------- Fußzeile -->
-    <div class="mt-6 space-y-3 border-t border-slate-200 pt-4">
-      <button
-        v-if="wakeLock.supported"
-        type="button"
-        class="flex w-full items-center justify-between gap-3 text-left"
-        @click="toggleKeepAwake"
+    <div class="mt-6 flex items-end justify-between gap-3">
+      <p
+        v-if="pushNeedsAttention"
+        class="text-xs leading-relaxed"
+        :class="pushHint.tone === 'warn' ? 'text-amber-600' : 'text-slate-400'"
       >
-        <span>
-          <span class="block text-sm font-medium text-slate-700">Display anlassen</span>
-          <span class="block text-xs text-slate-400">Nötig, damit der Signalton erklingt.</span>
-        </span>
-        <span
-          class="flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors"
-          :class="settings.keepAwake ? 'bg-accent-600' : 'bg-slate-300'"
-          aria-hidden="true"
-        >
-          <span
-            class="size-5 rounded-full bg-white transition-transform"
-            :class="settings.keepAwake ? 'translate-x-5' : 'translate-x-0'"
-          />
-        </span>
-      </button>
-
-      <label v-if="!timer" class="flex items-center justify-between gap-3">
-        <span class="min-w-0">
-          <span class="block text-sm font-medium text-slate-700">Waschmaschine</span>
-          <span class="block text-xs text-slate-400">{{ machine.description }}</span>
-        </span>
-        <select
-          class="min-w-0 shrink rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700"
-          :value="machine.id"
-          @change="chooseMachine($event.target.value)"
-        >
-          <option v-for="m in machines" :key="m.id" :value="m.id">{{ machineLabel(m) }}</option>
-        </select>
-      </label>
-
-      <div v-if="!timer && descaleProgram" class="flex items-center justify-between gap-3">
-        <span class="min-w-0">
-          <span class="block text-sm font-medium text-slate-700">Entkalken</span>
-          <span class="tnum block text-xs text-slate-400">
-            {{ care.washes }} von {{ care.threshold }} Wäschen ·
-            {{ care.lastDescaledAt ? `zuletzt am ${formatDate(care.lastDescaledAt)}` : 'noch nicht vermerkt' }}
-          </span>
-        </span>
-        <button
-          type="button"
-          class="shrink-0 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 active:bg-slate-100"
-          @click="showGuide ? (showGuide = false) : openGuide()"
-        >
-          {{ showGuide ? 'schließen' : 'Anleitung' }}
-        </button>
-      </div>
-
-      <div class="flex items-center justify-between gap-3">
-        <span class="min-w-0">
-          <span class="block text-sm font-medium text-slate-700">Signalton</span>
-          <span class="block text-xs text-slate-400">
-            Bleibt stumm, wenn der seitliche Schalter am iPhone auf lautlos steht.
-          </span>
-        </span>
-        <button
-          type="button"
-          class="shrink-0 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 active:bg-slate-100"
-          @click="alarm.test()"
-        >
-          testen
-        </button>
-      </div>
-
-      <div class="flex items-end justify-between gap-3">
-        <p
-          class="text-xs leading-relaxed"
-          :class="{
-            'text-emerald-600': pushHint.tone === 'ok',
-            'text-slate-400': pushHint.tone === 'info',
-            'text-amber-600': pushHint.tone === 'warn',
-          }"
-        >
-          {{ pushHint.text }}
-        </p>
-        <span class="tnum shrink-0 text-xs text-slate-300">v{{ appVersion }}</span>
-      </div>
+        {{ pushHint.text }}
+      </p>
+      <span class="tnum ml-auto shrink-0 text-xs text-slate-300">v{{ appVersion }}</span>
     </div>
   </div>
 </template>

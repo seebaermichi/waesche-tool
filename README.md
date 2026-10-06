@@ -22,7 +22,8 @@ auch einfach als [Issue „Neues Gerät“](../../issues/new?template=neues-gera
 
 ## Bedienung
 
-1. Unten unter **Waschmaschine** das eigene Modell wählen (einmalig).
+1. Einmalig über das **Zahnrad** oben rechts unter „Meine Waschmaschinen“ das eigene Modell
+   wählen.
 2. Programm im Dropdown wählen (Reihenfolge wie auf dem Programmwähler).
 3. Zeitvorwahl wählen – angeboten werden genau die Stufen, die die Maschine kennt.
 4. **Start** drücken. Die App zeigt die Endzeit und zählt herunter.
@@ -32,11 +33,19 @@ Die Zeiten stammen aus den Handbüchern und sind meist nur Richtwerte. Weicht di
 Laufzeit ab, lässt sie sich über **anpassen** bzw. im Fertig-Zustand dauerhaft pro Programm
 korrigieren.
 
+### Mehrere Waschmaschinen
+
+Zuhause und im Ferienhaus, oder alte und neue Maschine: Unter „Meine Waschmaschinen“ lassen
+sich beliebig viele Maschinen anlegen und benennen. Jede hat ihren eigenen Wäschezähler,
+ihr eigenes Entkalkungsdatum und eigene Zeitkorrekturen. Sobald es mehr als eine gibt,
+erscheint oben auf dem Startbildschirm ein Schalter zum schnellen Wechseln. Ein laufender
+Timer bleibt bei seiner Maschine und zählt dort mit.
+
 ## Entkalken
 
 Bei hartem Wasser sollte eine Waschmaschine etwa alle drei Monate entkalkt werden. Die App
-zählt dafür die Waschgänge mit und erinnert nach **40 Wäschen** (unter „Entkalken →
-Anleitung“ einstellbar) – spätestens aber nach **3 Monaten**. Die Funktion erscheint nur bei
+zählt dafür die Waschgänge mit und erinnert nach **40 Wäschen** (in den
+Einstellungen unter „Entkalken → Anleitung“ einstellbar) – spätestens aber nach **3 Monaten**. Die Funktion erscheint nur bei
 Geräten, deren Profil ein Reinigungsprogramm nennt.
 
 - **Gezählt** wird ein Waschgang, sobald er fertig ist oder gestoppt wird, nachdem die Maschine
@@ -48,7 +57,7 @@ Geräten, deren Profil ein Reinigungsprogramm nennt.
 - **Entkalken:** Die Anleitung wählt das Reinigungsprogramm vor. Läuft es mit dem Schalter
   „Mit Entkalker“ durch, setzt die App den Zähler zurück. Wer anders entkalkt hat, tippt auf
   „Schon entkalkt“.
-- **Stand korrigieren:** In der Anleitung lassen sich das Datum der letzten Entkalkung und die
+- **Stand korrigieren:** In der Anleitung (Einstellungen → Entkalken) lassen sich das Datum der letzten Entkalkung und die
   Zahl der Wäschen seitdem von Hand setzen – etwa beim ersten Einrichten.
 
 ## Was auf iOS funktioniert – und was nicht
@@ -56,7 +65,7 @@ Geräten, deren Profil ein Reinigungsprogramm nennt.
 | | |
 |---|---|
 | **Benachrichtigung** | Kommt auch bei gesperrtem Display und geschlossener App an. Setzt voraus: App ist zum Home-Bildschirm hinzugefügt (iOS 16.4+) und Mitteilungen sind erlaubt. |
-| **Signalton** | Nur, solange die App offen und das Display an ist – iOS lässt keine Audiowiedergabe aus einer schlafenden Seite zu. Dafür gibt es den Schalter „Display anlassen“. **Der seitliche Stummschalter am iPhone legt Web-Audio komplett still**, unabhängig von der Lautstärke; das kann keine Webseite umgehen. Zum Prüfen gibt es unten in der App „Signalton – testen“. |
+| **Signalton** | Nur, solange die App offen und das Display an ist – iOS lässt keine Audiowiedergabe aus einer schlafenden Seite zu. Dafür gibt es den Schalter „Display anlassen“. **Der seitliche Stummschalter am iPhone legt Web-Audio komplett still**, unabhängig von der Lautstärke; das kann keine Webseite umgehen. Zum Prüfen gibt es in den Einstellungen „Signalton – testen“. |
 | **Countdown** | Übersteht Neuladen und Schließen: Die Restzeit wird immer aus dem gespeicherten Endzeitpunkt neu berechnet, nie mitgezählt. |
 
 ## Selbst betreiben

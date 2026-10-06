@@ -2,9 +2,11 @@
 // 3 Monate entkalkt werden. Weil das von der Nutzung abhängt, zählt die App die Waschgänge
 // mit und erinnert nach `threshold` Wäschen – spätestens aber nach 3 Monaten, falls wenig
 // gewaschen wurde. Welches Programm entkalkt, steht im Geräteprofil (`descale`).
+//
+// Jede eigene Waschmaschine hat ihren eigenen Stand (`appliance.care`). Die Änderungs-
+// funktionen unten verändern so ein Objekt direkt; gespeichert wird in useAppliances.
 
-import { computed, ref } from 'vue'
-import { loadCare, saveCare } from './useStorage.js'
+import { computed } from 'vue'
 
 export const DESCALE_INTERVAL_DAYS = 90
 /** Grob 3 Wäschen pro Woche × 13 Wochen. Lässt sich in der App ändern. */
@@ -18,23 +20,56 @@ const SNOOZE_DAYS = 7
 
 const DAY_MS = 86_400_000
 
-export function useDescaling(now) {
-  const care = ref(
-    loadCare({
-      washes: 0,
-      lastDescaledAt: null,
-      // Ohne bekannte letzte Entkalkung läuft die 3-Monats-Frist ab der ersten Nutzung.
-      countingSince: Date.now(),
-      threshold: DEFAULT_THRESHOLD,
-      snooze: null,
-    }),
-  )
-  saveCare(care.value)
-
-  function persist() {
-    saveCare(care.value)
+/** { washes, lastDescaledAt, countingSince, threshold, snooze: { washes, until } | null } */
+export function newCare() {
+  return {
+    washes: 0,
+    lastDescaledAt: null,
+    // Ohne bekannte letzte Entkalkung läuft die 3-Monats-Frist ab der ersten Nutzung.
+    countingSince: Date.now(),
+    threshold: DEFAULT_THRESHOLD,
+    snooze: null,
   }
+}
 
+// --- Änderungen -------------------------------------------------------------
+
+export function countWash(care) {
+  care.washes += 1
+}
+
+export function markDescaled(care) {
+  care.washes = 0
+  care.lastDescaledAt = Date.now()
+  care.snooze = null
+}
+
+export function snooze(care) {
+  care.snooze = {
+    washes: care.washes + SNOOZE_WASHES,
+    until: Date.now() + SNOOZE_DAYS * DAY_MS,
+  }
+}
+
+/** Stand von Hand korrigieren, z. B. beim Einstieg mitten im Intervall. */
+export function setWashes(care, value) {
+  care.washes = Math.max(0, Math.round(value))
+  care.snooze = null
+}
+
+export function setLastDescaledAt(care, ts) {
+  care.lastDescaledAt = ts
+  care.snooze = null
+}
+
+export function setThreshold(care, value) {
+  care.threshold = Math.min(MAX_THRESHOLD, Math.max(MIN_THRESHOLD, value))
+}
+
+// --- Status -----------------------------------------------------------------
+
+/** Abgeleiteter Status für den Stand `care` (ein computed/ref) zum Zeitpunkt `now`. */
+export function useDescaling(now, care) {
   const referenceAt = computed(() => care.value.lastDescaledAt ?? care.value.countingSince)
   const dueAt = computed(() => referenceAt.value + DESCALE_INTERVAL_DAYS * DAY_MS)
 
@@ -55,57 +90,5 @@ export function useDescaling(now) {
     return care.value.washes + 1 >= care.value.threshold || dueByTime.value
   }
 
-  function countWash() {
-    care.value.washes += 1
-    persist()
-  }
-
-  function markDescaled() {
-    care.value.washes = 0
-    care.value.lastDescaledAt = Date.now()
-    care.value.snooze = null
-    persist()
-  }
-
-  function snooze() {
-    care.value.snooze = {
-      washes: care.value.washes + SNOOZE_WASHES,
-      until: Date.now() + SNOOZE_DAYS * DAY_MS,
-    }
-    persist()
-  }
-
-  /** Stand von Hand korrigieren, z. B. beim Einstieg mitten im Intervall. */
-  function setWashes(value) {
-    care.value.washes = Math.max(0, Math.round(value))
-    care.value.snooze = null
-    persist()
-  }
-
-  function setLastDescaledAt(ts) {
-    care.value.lastDescaledAt = ts
-    care.value.snooze = null
-    persist()
-  }
-
-  function setThreshold(value) {
-    care.value.threshold = Math.min(MAX_THRESHOLD, Math.max(MIN_THRESHOLD, value))
-    persist()
-  }
-
-  return {
-    care,
-    dueAt,
-    due,
-    dueByCount,
-    dueByTime,
-    remind,
-    dueAfterNextWash,
-    countWash,
-    markDescaled,
-    snooze,
-    setWashes,
-    setLastDescaledAt,
-    setThreshold,
-  }
+  return { dueAt, due, dueByCount, dueByTime, remind, dueAfterNextWash }
 }

@@ -16,8 +16,8 @@ hochladen**: Die sind urheberrechtlich geschützt, die Laufzeiten selbst sind es
 1. Datei `src/machines/<marke>-<modell>.js` anlegen, alles kleingeschrieben, z. B.
    `bosch-wan28k40.js`. Am besten `hanseatic-htw510c.js` kopieren.
 2. Felder ausfüllen (siehe unten).
-3. `npm run check` – prüft alle Profile. `npm run dev` – Modell unten in der App wählen und
-   ausprobieren.
+3. `npm run check` – prüft alle Profile. `npm run dev` – in den Einstellungen (Zahnrad) eine
+   Maschine mit dem neuen Modell anlegen und ausprobieren.
 4. Pull Request stellen. Die Liste „Unterstützte Geräte“ in beiden READMEs bitte ergänzen.
 
 ```js

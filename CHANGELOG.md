@@ -3,6 +3,15 @@
 Versionsnummern nach [Semantic Versioning](https://semver.org/lang/de/). Die laufende Version
 steht in der App unten rechts.
 
+## 1.2.0 – 2026-10-06
+
+- **Einstellungen** hinter dem Zahnrad oben rechts: Waschmaschinen, Entkalken, Display
+  anlassen, Signalton testen, Benachrichtigung, Version. Der Startbildschirm zeigt nur noch das
+  Starten – und Hinweise zur Benachrichtigung nur, wenn etwas nicht stimmt.
+- **Mehrere eigene Waschmaschinen** („Zuhause“, „Ferienhaus“ …), jede mit eigenem
+  Wäschezähler, Entkalkungsdatum und eigenen Zeitkorrekturen. Ab zwei Maschinen gibt es oben
+  einen Schnellwechsel. Der bisherige Stand wird in die erste Maschine übernommen.
+
 ## 1.1.0 – 2026-10-06
 
 - **Mehrere Waschmaschinen:** Geräte stehen als Datendateien in `src/machines/` und lassen
